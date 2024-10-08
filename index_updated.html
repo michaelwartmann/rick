@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="nl"> <!-- Specifies the language as Dutch -->
+<head>
+    <meta charset="UTF-8"> <!-- Sets the character encoding to UTF-8 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!-- Sets the viewport for responsive design -->
+    <title>Gefeliciteerd Rick! - Pickleballspel</title> <!-- Title of the webpage -->
+    <style>
+        /* Basic styling for the body */
+        body {
+            display: flex; /* Centers content vertically and horizontally */
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full height of the viewport */
+            margin: 0; /* Removes default margin */
+            background-color: #f0f0f0; /* Light gray background */
+            overflow: hidden; /* Prevents scrolling */
+        }
+        /* Styling for the starter page */
+        #starterPage {
+            text-align: center;
+            padding: 20px;
+        }
+        /* Styling for images container */
+        .pictures {
+            display: flex;
+            justify-content: center;
+            gap: 10px; /* Space between images */
+            margin: 20px 0;
+        }
+        .pictures img {
+            width: 100px;
+            height: auto;
+            border-radius: 8px; /* Rounded corners */
+        }
+        /* Styling for the game container */
+        #gameContainer {
+            display: none; /* Hidden by default */
+            position: relative;
+            width: 100vw; /* Full viewport width */
+            height: 100vh; /* Full viewport height */
+            overflow: hidden; /* Prevents scrolling */
+        }
+        canvas {
+            display: block;
+            margin: 0 auto; /* Centers canvas */
+            border: 2px solid #000; /* Black border around the canvas */
+        }
+        /* Styling for the message box */
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 20px;
+            display: none; /* Hidden by default */
+        }
+        /* Styling for the exit button and rotate message */
+        #exitButton {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px 10px;
+            font-size: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .rotate-message {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(calc(-50% + 120px)); /* Position next to the exit button */
+            font-size: 12px;
+            color: #ffcc00;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        /* Styling for the rally displays at the bottom */
+        .rally-container {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px; /* Space between rally displays */
+            font-size: 12px;
+            color: #fff;
+        }
+        .rally-display {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        /* Styling for the play and music buttons */
+        .playButton, .musicButton {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #007bff; /* Blue background */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            display: block;
+        }
+        .musicButton {
+            background-color: #ffc107; /* Yellow background for music button */
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Starter Page Container -->
+    <div id="starterPage">
+        <h1>🎉 Hiep Hiep Hoera! 🎾</h1> <!-- Heading with emojis -->
+        <p>Gefeliciteerd met je verjaardag, Rick! Geniet van het spel! 🎾🎂</p> <!-- Birthday message -->
+        <div class="pictures"> <!-- Images of Michael and Rick -->
+            <img src="IMG_20240229_213853.jpg" alt="Michael and Rick 1">
+            <img src="IMG_9980.jpg" alt="Michael and Rick 2">
+        </div>
+        <button class="playButton" onclick="startGame()">Play Game</button> <!-- Button to start the game -->
+        <button class="musicButton" onclick="playMusic()">Play Music</button> <!-- Button to play music -->
+        <audio id="birthdaySong" src="hiep_hiep_hoera.mp3" loop></audio> <!-- Birthday song audio -->
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer">
+        <button id="exitButton">Exit</button> <!-- Button to exit the game -->
+        <span class="rotate-message">Rotate for better experience</span> <!-- Rotate message -->
+        <canvas id="gameCanvas"></canvas> <!-- Canvas for game rendering -->
+        <div class="rally-container">
+            <p id="longestRally" class="rally-display">Langste rally: 0</p> <!-- Longest rally display -->
+            <p id="score" class="rally-display">Aantal slagen: 0</p> <!-- Current rally display -->
+        </div>
+        <div id="message"></div> <!-- Message display -->
+        <audio id="hitSound" src="hit.mp3"></audio> <!-- Hit sound effect -->
+    </div>
+
+    <script>
+        // DOM elements selection
+        const starterPage = document.getElementById('starterPage');
+        const exitButton = document.getElementById('exitButton');
+        const gameContainer = document.getElementById('gameContainer');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d'); // Canvas drawing context
+        const scoreElement = document.getElementById('score');
+        const messageElement = document.getElementById('message');
+        const longestRallyElement = document.getElementById('longestRally');
+        const birthdaySong = document.getElementById('birthdaySong');
+        const hitSound = document.getElementById('hitSound');
+
+        // Game variables
+        const paddleWidth = 60;
+        const paddleHeight = 120;
+        let rickY = canvas.height / 2 - paddleHeight / 2; // Center Rick vertically
+        let rickX = 0.9 * canvas.width; // Position Rick on the right
+        let targetX = rickX;
+        let targetY = rickY;
+        const rickMaxSpeed = 5; // Maximum speed for Rick's movement
+        let michaelY = canvas.height / 2 - paddleHeight / 2; // Center Michael vertically
+        let ballX = canvas.width;
+        let ballY = canvas.height / 2;
+        let ballSpeedX = -2; // Horizontal speed of the ball
+        let ballSpeedY = 0; // Vertical speed of the ball
+        let rallyScore = 0; // Score counter
+        let longestRally = 0; // Longest rally counter
+
+        // Images for faces and court
+        const michaelFace = new Image();
+        michaelFace.src = 'michael_face.png';
+
+        const rickFace = new Image();
+        rickFace.src = 'rick_face.png';
+
+        const courtImage = new Image();
+        courtImage.src = 'court.png';
+
+        // Function to play the music
+        function playMusic() {
+            birthdaySong.volume = 0.1; // Set volume for soft playback
+            birthdaySong.play().catch((error) => {
+                console.log('Autoplay failed due to browser restrictions:', error);
+            });
+        }
+
+        // Function to start the game
+        function startGame() {
+            starterPage.style.display = 'none'; // Hide starter page
+            gameContainer.style.display = 'block'; // Show game container
+            birthdaySong.pause(); // Stop the birthday song when the game starts
+            resizeCanvasToFit(); // Adjust canvas size
+            gameLoop(); // Start the game loop
+        }
+
+        // Event listener to exit the game
+        exitButton.addEventListener('click', () => {
+            document.exitFullscreen().catch(err => console.log('Exit fullscreen failed:', err));
+            starterPage.style.display = 'block'; // Show starter page
+            gameContainer.style.display = 'none'; // Hide game container
+            birthdaySong.play(); // Resume the birthday song
+        });
+
+        // Resize the canvas to fit the window
+        function resizeCanvasToFit() {
+            const margin = 20; // Margin to prevent cutoff
+            canvas.width = window.innerWidth - margin;
+            canvas.height = window.innerHeight - margin;
+        }
+
+        // Function to draw a rectangle
+        function drawRect(x, y, width, height, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, width, height);
+        }
+
+        // Function to draw a circle
+        function drawCircle(x, y, radius, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2, false);
+            ctx.fill();
+        }
+
+        // Update Rick's position based on target coordinates
+        function updateRickPosition() {
+            let deltaX = targetX - rickX;
+            let deltaY = targetY - rickY;
+            let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            if (distance > rickMaxSpeed) {
+                rickX += (deltaX / distance) * rickMaxSpeed;
+                rickY += (deltaY / distance) * rickMaxSpeed;
+            } else {
+                rickX = targetX;
+                rickY = targetY;
+            }
+
+            // Constrain Rick within the canvas
+            if (rickX < canvas.width / 2) {
+                rickX = canvas.width / 2;
+            }
+            if (rickY < 0) {
+                rickY = 0;
+            }
+            if (rickY > canvas.height - paddleHeight) {
+                rickY = canvas.height - paddleHeight;
+            }
+        }
+
+        // Update Michael's position based on the ball position
+        function updateMichaelPosition() {
+            const michaelCenter = michaelY + paddleHeight / 2;
+            const targetPosition = ballY - paddleHeight / 4;
+            const moveSpeed = 6;
+
+            if (michaelCenter < targetPosition) {
+                michaelY = Math.min(canvas.height - paddleHeight, michaelY + moveSpeed);
+            } else if (michaelCenter > targetPosition) {
+                michaelY = Math.max(0, michaelY - moveSpeed);
+            }
+        }
+
+        // Update the ball's position and handle collisions
+        function updateBallPosition() {
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            // Ball collision with top and bottom edges
+            if (ballY < 10) {
+                ballY = 10;
+                ballSpeedY = Math.abs(ballSpeedY);
+            } else if (ballY > canvas.height - 10) {
+                ballY = canvas.height - 10;
+                ballSpeedY = -Math.abs(ballSpeedY);
+            }
+
+            // Collision with Michael's paddle
+            if (
+                ballX < paddleWidth &&
+                ballY > michaelY &&
+                ballY < michaelY + paddleHeight &&
+                ballSpeedX < 0
+            ) {
+                ballSpeedX = -ballSpeedX; // Reverse ball direction
+                let deltaY = ballY - (michaelY + paddleHeight / 2);
+                ballSpeedY = deltaY * 0.25; // Adjust vertical speed
+                rallyScore++;
+                scoreElement.textContent = `Aantal slagen: ${rallyScore}`; // Update score
+                playHitSound(); // Play sound on hit
+
+                if (rallyScore % 3 === 0) { // Increase speed after 3 hits
+                    showMessage("Nu wat sneller, Rick!");
+                    ballSpeedX *= 1.5;
+                    ballSpeedY *= 1.5;
+                }
+            }
+
+            // Collision with Rick's paddle
+            if (
+                ballX > rickX &&
+                ballY > rickY &&
+                ballY < rickY + paddleHeight &&
+                ballSpeedX > 0
+            ) {
+                ballSpeedX = -ballSpeedX;
+                let deltaY = ballY - (rickY + paddleHeight / 2);
+                ballSpeedY = deltaY * 0.25;
+                rallyScore++;
+                scoreElement.textContent = `Aantal slagen: ${rallyScore}`;
+                playHitSound(); // Play sound on hit
+
+                if (rallyScore % 3 === 0) {
+                    showMessage("Nu wat sneller, Rick!");
+                    ballSpeedX *= 1.5;
+                    ballSpeedY *= 1.5;
+                }
+            }
+
+            // Reset the game when a player misses
+            if (ballX < 0 || ballX > canvas.width) {
+                if (rallyScore > longestRally) {
+                    longestRally = rallyScore; // Update the longest rally if current is greater
+                    longestRallyElement.textContent = `Langste rally: ${longestRally}`; // Display the longest rally
+                }
+                ballX = 0.9 * canvas.width;
+                ballY = canvas.height / 2;
+                rallyScore = 0;
+                rickY = canvas.height / 2 - paddleHeight / 2; // Center Rick vertically
+                rickX = 0.9 * canvas.width; // Position Rick on the right
+                ballSpeedX = -3;
+                ballSpeedY = 0;
+                scoreElement.textContent = `Aantal slagen: ${rallyScore}`;
+                showMessage("Mooie punt! Nog een keer!");
+            }
+        }
+
+        // Play hit sound effect
+        function playHitSound() {
+            hitSound.currentTime = 0; // Reset to start to play again immediately
+            hitSound.play();
+        }
+
+        // Display a message on the screen
+        function showMessage(text) {
+            messageElement.textContent = text;
+            messageElement.style.display = 'block';
+            setTimeout(() => {
+                messageElement.style.display = 'none';
+            }, 2000);
+        }
+
+        // Main game loop
+        function gameLoop() {
+            // Draw court background
+            if (courtImage.complete) {
+                ctx.drawImage(courtImage, 0, 0, canvas.width, canvas.height);
+            }
+
+            // Draw Michael's paddle
+            if (michaelFace.complete) {
+                ctx.drawImage(michaelFace, 0, michaelY, paddleWidth, paddleHeight);
+            } else {
+                drawRect(0, michaelY, paddleWidth, paddleHeight, 'white');
+            }
+
+            // Draw Rick's paddle
+            if (rickFace.complete) {
+                ctx.drawImage(rickFace, rickX, rickY, paddleWidth, paddleHeight);
+            } else {
+                drawRect(rickX, rickY, paddleWidth, paddleHeight, 'white');
+            }
+
+            // Draw the ball
+            drawCircle(ballX, ballY, 8, 'yellow');
+
+            // Update positions
+            updateBallPosition();
+            updateMichaelPosition();
+            updateRickPosition();
+
+            // Request the next animation frame
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners for touch and mouse input
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('mousedown', handleTouch);
+
+        // Handle touch or click input to move Rick
+        function handleTouch(event) {
+            const rect = canvas.getBoundingClientRect();
+            const touchX = event.clientX - rect.left || event.touches[0].clientX - rect.left;
+            const touchY = event.clientY - rect.top || event.touches[0].clientY - rect.top;
+
+            targetX = Math.max(canvas.width / 2, Math.min(touchX, canvas.width - paddleWidth));
+            targetY = Math.max(0, Math.min(touchY, canvas.height - paddleHeight));
+        }
+
+        // Resize canvas when window size changes
+        window.addEventListener('resize', resizeCanvasToFit);
+    </script>
+</body>
+</html>
