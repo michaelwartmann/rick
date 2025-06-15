@@ -1,2 +1,0 @@
-# Voor Rick
-Beterschap Rick!
